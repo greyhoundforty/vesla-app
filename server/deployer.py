@@ -261,3 +261,35 @@ class ContainerDeployer:
         except Exception as e:
             logger.error(f"Error getting container logs: {e}")
             return None
+
+    def list_all_apps(self) -> list:
+        """
+        List all Vesla-managed containers
+
+        Returns:
+            List of dictionaries with app information
+        """
+        try:
+            # Get all containers with vesla.managed label
+            containers = self.docker.containers.list(
+                all=True,
+                filters={"label": "vesla.managed=true"}
+            )
+
+            apps = []
+            for container in containers:
+                labels = container.labels
+                apps.append({
+                    "name": labels.get("vesla.app", container.name),
+                    "domain": labels.get("vesla.domain", "N/A"),
+                    "status": container.status,
+                    "id": container.id[:12],
+                    "image": container.image.tags[0] if container.image.tags else container.image.id[:12],
+                    "created": container.attrs["Created"]
+                })
+
+            return apps
+
+        except Exception as e:
+            logger.error(f"Error listing apps: {e}")
+            return []

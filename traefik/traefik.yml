@@ -4,7 +4,7 @@
 # API and Dashboard
 api:
   dashboard: true  # Enable the dashboard
-  insecure: false  # Don't expose dashboard on :8080 (we'll use HTTPS)
+  insecure: true   # Expose dashboard on :8080 (safe - bound to 127.0.0.1 only)
 
 # Entry Points (where Traefik listens)
 entryPoints:

@@ -1,0 +1,37 @@
+VESLA BUILDPACK - SUPPORTED LANGUAGES
+=====================================
+
+Language/Framework          Detection File(s)                 Base Image                   Multi-Stage
+----------------------------------------------------------------------------------------------------------
+Custom Dockerfile          Dockerfile                        (user-provided)              (user-defined)
+Go                         go.mod, main.go                   golang:1.21-alpine           ✓ Yes
+Rust                       Cargo.toml                        rust:1.75-slim               ✓ Yes
+Python                     requirements.txt, pyproject.toml  python:3.11-slim             ✗ No
+Node.js                    package.json                      node:20-slim                 ✗ No
+Ruby                       Gemfile, config.ru                ruby:3.2-slim                ✗ No
+PHP                        composer.json, index.php          php:8.2-fpm-alpine           ✗ No
+Java (Maven)               pom.xml                           maven:3.9 + temurin:21-jre   ✓ Yes
+Java (Gradle)              build.gradle                      gradle:8.5 + temurin:21-jre  ✓ Yes
+.NET                       *.csproj, *.fsproj                dotnet/sdk:8.0 + aspnet:8.0  ✓ Yes
+Static Site                index.html                        nginx:1.25-alpine            ✗ No
+
+SECURITY FEATURES (ALL LANGUAGES):
+----------------------------------
+✓ Non-root user (uid 1000)
+✓ Minimal base images
+✓ Layer caching optimized
+✓ No build tools in runtime images (for multi-stage)
+✓ Specific image versions (not 'latest')
+
+FRAMEWORK AUTO-DETECTION:
+------------------------
+Python:   Flask, Django, FastAPI, Gunicorn apps
+Node.js:  Express, Koa, NestJS, Next.js
+Ruby:     Rails, Sinatra, Rack apps
+PHP:      Laravel, Symfony, plain PHP
+Java:     Spring Boot, Micronaut, Quarkus
+.NET:     ASP.NET Core (C#, F#, VB)
+Go:       net/http, Gin, Echo, Fiber
+Rust:     Actix, Rocket, Axum, Warp
+
+For detailed documentation, see: /opt/vesla/server/BUILDPACKS.md

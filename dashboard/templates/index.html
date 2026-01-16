@@ -168,6 +168,46 @@
             color: var(--charcoal);
         }
 
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .view-toggle {
+            display: flex;
+            border: 3px solid var(--charcoal);
+            overflow: hidden;
+        }
+
+        .view-btn {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--light-cream);
+            color: var(--charcoal);
+            border: none;
+            border-right: 3px solid var(--charcoal);
+            padding: 12px 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .view-btn:last-child {
+            border-right: none;
+        }
+
+        .view-btn:hover {
+            background: var(--warm-gray);
+        }
+
+        .view-btn.active {
+            background: var(--charcoal);
+            color: var(--cream);
+        }
+
         .refresh-btn {
             font-family: 'IBM Plex Mono', monospace;
             background: var(--nasa-orange);
@@ -351,6 +391,120 @@
             transition: width 0.5s ease;
         }
 
+        /* List View */
+        .deployments-list {
+            background: var(--light-cream);
+            border: 3px solid var(--charcoal);
+            max-height: 600px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        .deployments-list::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .deployments-list::-webkit-scrollbar-track {
+            background: var(--warm-gray);
+        }
+
+        .deployments-list::-webkit-scrollbar-thumb {
+            background: var(--charcoal);
+            border: 2px solid var(--warm-gray);
+        }
+
+        .deployments-list::-webkit-scrollbar-thumb:hover {
+            background: var(--nasa-orange);
+        }
+
+        .list-item {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1.5fr 1fr 1fr;
+            gap: 15px;
+            padding: 15px 20px;
+            border-bottom: 2px solid var(--warm-gray);
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .list-item:hover {
+            background: var(--cream);
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-header {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1.5fr 1fr 1fr;
+            gap: 15px;
+            padding: 15px 20px;
+            background: var(--charcoal);
+            color: var(--cream);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-bottom: 3px solid var(--nasa-orange);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .list-cell {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--charcoal);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .list-cell.mono {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .list-cell.name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .list-domain {
+            color: var(--mission-blue);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .list-domain:hover {
+            color: var(--nasa-orange);
+        }
+
+        .list-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--apollo-green);
+            color: white;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 2px;
+        }
+
+        .list-status-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+        }
+
         /* Loading state */
         .loading {
             text-align: center;
@@ -462,7 +616,17 @@
         <main>
             <div class="deployments-header">
                 <h2>ACTIVE DEPLOYMENTS</h2>
-                <button class="refresh-btn" onclick="loadDeployments()">↻ REFRESH</button>
+                <div class="controls">
+                    <div class="view-toggle">
+                        <button class="view-btn active" onclick="switchView('card')" id="card-view-btn">
+                            ⊞ CARD VIEW
+                        </button>
+                        <button class="view-btn" onclick="switchView('list')" id="list-view-btn">
+                            ☰ LIST VIEW
+                        </button>
+                    </div>
+                    <button class="refresh-btn" onclick="loadDeployments()">↻ REFRESH</button>
+                </div>
             </div>
 
             <div id="deployments-container">
@@ -476,6 +640,21 @@
     </div>
 
     <script>
+        // View state management
+        let currentView = localStorage.getItem('vesla-view') || 'card';
+
+        function switchView(view) {
+            currentView = view;
+            localStorage.setItem('vesla-view', view);
+
+            // Update button states
+            document.getElementById('card-view-btn').classList.toggle('active', view === 'card');
+            document.getElementById('list-view-btn').classList.toggle('active', view === 'list');
+
+            // Re-render current data
+            loadDeployments();
+        }
+
         function updateMissionTime() {
             const now = new Date();
             const hours = String(now.getUTCHours()).padStart(2, '0');
@@ -505,47 +684,80 @@
                 return;
             }
 
-            container.innerHTML = `
-                <div class="deployments-grid">
-                    ${deployments.map(dep => `
-                        <div class="deployment-card">
-                            <div class="card-header">
-                                <div class="card-title">${dep.name}</div>
-                                <a href="https://${dep.domain}" target="_blank" class="card-domain">
-                                    ${dep.domain} →
-                                </a>
+            if (currentView === 'list') {
+                // Render list view
+                container.innerHTML = `
+                    <div class="deployments-list">
+                        <div class="list-header">
+                            <div>Name</div>
+                            <div>Domain</div>
+                            <div>Status</div>
+                            <div>Image</div>
+                            <div>Uptime</div>
+                            <div>Memory</div>
+                        </div>
+                        ${deployments.map(dep => `
+                            <div class="list-item">
+                                <div class="list-cell name">${dep.name}</div>
+                                <div class="list-cell">
+                                    <a href="https://${dep.domain}" target="_blank" class="list-domain">
+                                        ${dep.domain} →
+                                    </a>
+                                </div>
+                                <div class="list-cell">
+                                    <span class="list-status-badge">${dep.status}</span>
+                                </div>
+                                <div class="list-cell mono">${dep.image}</div>
+                                <div class="list-cell">${dep.uptime}</div>
+                                <div class="list-cell">${dep.mem_usage_mb} MB</div>
                             </div>
-                            <div class="card-body">
-                                <div class="card-row">
-                                    <span class="card-label">Status</span>
-                                    <span class="status-badge">${dep.status}</span>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                // Render card view
+                container.innerHTML = `
+                    <div class="deployments-grid">
+                        ${deployments.map(dep => `
+                            <div class="deployment-card">
+                                <div class="card-header">
+                                    <div class="card-title">${dep.name}</div>
+                                    <a href="https://${dep.domain}" target="_blank" class="card-domain">
+                                        ${dep.domain} →
+                                    </a>
                                 </div>
-                                <div class="card-row">
-                                    <span class="card-label">Uptime</span>
-                                    <span class="card-value">${dep.uptime}</span>
-                                </div>
-                                <div class="card-row">
-                                    <span class="card-label">Port</span>
-                                    <span class="card-value mono">${dep.port || 'N/A'}</span>
-                                </div>
-                                <div class="card-row">
-                                    <span class="card-label">Image</span>
-                                    <span class="card-value mono">${dep.image}</span>
-                                </div>
-                                <div class="card-row">
-                                    <span class="card-label">Memory</span>
-                                    <div style="flex: 1; margin-left: 20px;">
-                                        <span class="card-value">${dep.mem_usage_mb} MB (${dep.mem_percent}%)</span>
-                                        <div class="mem-bar">
-                                            <div class="mem-bar-fill" style="width: ${Math.min(dep.mem_percent, 100)}%"></div>
+                                <div class="card-body">
+                                    <div class="card-row">
+                                        <span class="card-label">Status</span>
+                                        <span class="status-badge">${dep.status}</span>
+                                    </div>
+                                    <div class="card-row">
+                                        <span class="card-label">Uptime</span>
+                                        <span class="card-value">${dep.uptime}</span>
+                                    </div>
+                                    <div class="card-row">
+                                        <span class="card-label">Port</span>
+                                        <span class="card-value mono">${dep.port || 'N/A'}</span>
+                                    </div>
+                                    <div class="card-row">
+                                        <span class="card-label">Image</span>
+                                        <span class="card-value mono">${dep.image}</span>
+                                    </div>
+                                    <div class="card-row">
+                                        <span class="card-label">Memory</span>
+                                        <div style="flex: 1; margin-left: 20px;">
+                                            <span class="card-value">${dep.mem_usage_mb} MB (${dep.mem_percent}%)</span>
+                                            <div class="mem-bar">
+                                                <div class="mem-bar-fill" style="width: ${Math.min(dep.mem_percent, 100)}%"></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+                        `).join('')}
+                    </div>
+                `;
+            }
         }
 
         async function loadDeployments() {
@@ -573,9 +785,18 @@
             }
         }
 
+        // Initialize view buttons based on saved preference
+        function initializeView() {
+            document.getElementById('card-view-btn').classList.toggle('active', currentView === 'card');
+            document.getElementById('list-view-btn').classList.toggle('active', currentView === 'list');
+        }
+
         // Update mission time every second
         setInterval(updateMissionTime, 1000);
         updateMissionTime();
+
+        // Initialize view on page load
+        initializeView();
 
         // Load deployments on page load
         loadDeployments();

@@ -10,4 +10,5 @@ services:
       - "127.0.0.1:5002:5002"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /usr/bin/docker:/usr/bin/docker:ro
     # No Traefik labels - using Tailscale Serve instead

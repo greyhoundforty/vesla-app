@@ -5,6 +5,7 @@ Vesla CLI - Deploy applications to your Vesla server
 Usage:
     vesla init                  # Initialize vesla.yaml in current directory
     vesla push                  # Deploy current directory to server
+    vesla list                  # List all deployed apps
     vesla status <app>          # Get status of deployed app
     vesla logs <app> [--tail N] # View logs from deployed app
     vesla delete <app>          # Delete deployed app
@@ -98,6 +99,12 @@ class VeslaClient:
         """Delete application"""
         url = f"{self.server_url}/api/apps/{app_name}"
         response = requests.delete(url, headers=self.headers, timeout=30)
+        return response
+
+    def list_apps(self):
+        """List all deployed applications"""
+        url = f"{self.server_url}/api/apps"
+        response = requests.get(url, headers=self.headers, timeout=10)
         return response
 
     def health_check(self):
@@ -334,6 +341,42 @@ def cmd_delete(args):
         return 1
 
 
+def cmd_list(args):
+    """List all deployed applications"""
+    config = VeslaConfig()
+    server_url = config.get("server_url")
+    api_token = config.get("api_token")
+
+    if not server_url or not api_token:
+        print("Error: Vesla not configured. Run 'vesla config set' first.")
+        return 1
+
+    client = VeslaClient(server_url, api_token)
+    response = client.list_apps()
+
+    if response.status_code == 200:
+        result = response.json()
+        apps = result.get('apps', [])
+
+        if not apps:
+            print("No deployed apps found.")
+            return 0
+
+        print(f"Deployed Apps ({len(apps)} total):\n")
+        for app in apps:
+            status_icon = "✓" if app['status'] == 'running' else "✗"
+            print(f"  {status_icon} {app['name']}")
+            print(f"      Domain: {app['domain']}")
+            print(f"      Status: {app['status']}")
+            print(f"      Image:  {app['image']}")
+            print()
+        return 0
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return 1
+
+
 def cmd_config(args):
     """Manage configuration"""
     config = VeslaConfig()
@@ -377,6 +420,9 @@ def main():
     # Push command
     push_parser = subparsers.add_parser('push', help='Deploy current directory')
 
+    # List command
+    list_parser = subparsers.add_parser('list', help='List all deployed apps')
+
     # Status command
     status_parser = subparsers.add_parser('status', help='Get app status')
     status_parser.add_argument('app', help='App name')
@@ -415,6 +461,8 @@ def main():
         return cmd_init(args)
     elif args.command == 'push':
         return cmd_push(args)
+    elif args.command == 'list':
+        return cmd_list(args)
     elif args.command == 'status':
         return cmd_status(args)
     elif args.command == 'logs':

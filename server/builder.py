@@ -32,15 +32,29 @@ class ImageBuilder:
         Detect application runtime from project files
 
         Returns:
-            Runtime type: 'dockerfile', 'python', 'node', 'static', or 'unknown'
+            Runtime type: 'dockerfile', 'python', 'node', 'go', 'ruby', 'php',
+            'java', 'rust', 'dotnet', 'static', or 'unknown'
         """
         # Check for Dockerfile first (user-provided)
         if (build_dir / "Dockerfile").exists():
             logger.info("Found Dockerfile - using custom build")
             return "dockerfile"
 
+        # Check for Go
+        if (build_dir / "go.mod").exists() or (build_dir / "main.go").exists():
+            logger.info("Detected Go runtime")
+            return "go"
+
+        # Check for Rust
+        if (build_dir / "Cargo.toml").exists():
+            logger.info("Detected Rust runtime")
+            return "rust"
+
         # Check for Python
-        if (build_dir / "requirements.txt").exists() or (build_dir / "pyproject.toml").exists():
+        if (build_dir / "requirements.txt").exists() or \
+           (build_dir / "pyproject.toml").exists() or \
+           (build_dir / "Pipfile").exists() or \
+           (build_dir / "setup.py").exists():
             logger.info("Detected Python runtime")
             return "python"
 
@@ -49,7 +63,37 @@ class ImageBuilder:
             logger.info("Detected Node.js runtime")
             return "node"
 
-        # Check for static site
+        # Check for Ruby
+        if (build_dir / "Gemfile").exists() or \
+           (build_dir / "config.ru").exists():
+            logger.info("Detected Ruby runtime")
+            return "ruby"
+
+        # Check for PHP
+        if (build_dir / "composer.json").exists() or \
+           (build_dir / "index.php").exists():
+            logger.info("Detected PHP runtime")
+            return "php"
+
+        # Check for Java/Maven
+        if (build_dir / "pom.xml").exists():
+            logger.info("Detected Java (Maven) runtime")
+            return "java-maven"
+
+        # Check for Java/Gradle
+        if (build_dir / "build.gradle").exists() or \
+           (build_dir / "build.gradle.kts").exists():
+            logger.info("Detected Java (Gradle) runtime")
+            return "java-gradle"
+
+        # Check for .NET
+        if any(build_dir.glob("*.csproj")) or \
+           any(build_dir.glob("*.fsproj")) or \
+           any(build_dir.glob("*.vbproj")):
+            logger.info("Detected .NET runtime")
+            return "dotnet"
+
+        # Check for static site (should be last)
         if (build_dir / "index.html").exists():
             logger.info("Detected static site")
             return "static"
@@ -59,10 +103,10 @@ class ImageBuilder:
 
     def generate_dockerfile(self, runtime: str, build_dir: Path, config: dict) -> str:
         """
-        Generate Dockerfile content based on runtime
+        Generate secure Dockerfile content based on runtime
 
         Args:
-            runtime: Runtime type (python, node, static)
+            runtime: Runtime type (python, node, go, ruby, php, java, rust, dotnet, static)
             build_dir: Build directory path
             config: vesla.yaml configuration
 
@@ -72,32 +116,40 @@ class ImageBuilder:
         port = config.get("env", {}).get("PORT", "5000")
 
         if runtime == "python":
-            # Detect Python web framework
             entrypoint = self._detect_python_entrypoint(build_dir)
-
             dockerfile = f"""FROM python:3.11-slim
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
 
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements.txt* pyproject.toml* ./
-RUN pip install --no-cache-dir -r requirements.txt || pip install --no-cache-dir .
+COPY requirements.txt* pyproject.toml* Pipfile* setup.py* ./
+RUN pip install --no-cache-dir -U pip && \\
+    (pip install --no-cache-dir -r requirements.txt || \\
+     pip install --no-cache-dir . || \\
+     ([ -f Pipfile ] && pip install pipenv && pipenv install --system --deploy))
 
 # Copy application code
 COPY . .
 
-# Expose port
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE {port}
 
-# Run application
 {entrypoint}
 """
 
         elif runtime == "node":
-            # Detect Node.js start command
             start_cmd = self._detect_node_start(build_dir)
-
             dockerfile = f"""FROM node:20-slim
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
 
 WORKDIR /app
 
@@ -108,21 +160,283 @@ RUN npm ci --only=production || npm install --production
 # Copy application code
 COPY . .
 
-# Expose port
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE {port}
 
-# Run application
 {start_cmd}
 """
 
+        elif runtime == "go":
+            dockerfile = f"""# Build stage
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum* ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
+
+# Runtime stage
+FROM alpine:3.19
+
+# Install ca-certificates for HTTPS
+RUN apk --no-cache add ca-certificates
+
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/app .
+
+# Change ownership
+RUN chown appuser:appuser /app/app
+
+USER appuser
+
+EXPOSE {port}
+
+CMD ["./app"]
+"""
+
+        elif runtime == "rust":
+            dockerfile = f"""# Build stage
+FROM rust:1.75-slim AS builder
+
+WORKDIR /app
+
+# Copy manifests
+COPY Cargo.toml Cargo.lock* ./
+
+# Copy source code
+COPY . .
+
+# Build release binary
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \\
+    ca-certificates \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/* ./
+
+# Change ownership
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE {port}
+
+CMD ["./app"]
+"""
+
+        elif runtime == "ruby":
+            entrypoint = self._detect_ruby_entrypoint(build_dir)
+            dockerfile = f"""FROM ruby:3.2-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \\
+    build-essential \\
+    libpq-dev \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+
+WORKDIR /app
+
+# Copy Gemfile
+COPY Gemfile Gemfile.lock* ./
+RUN bundle install --deployment --without development test
+
+# Copy application code
+COPY . .
+
+# Change ownership
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE {port}
+
+{entrypoint}
+"""
+
+        elif runtime == "php":
+            dockerfile = f"""FROM php:8.2-fpm-alpine
+
+# Install dependencies
+RUN apk add --no-cache nginx supervisor
+
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
+
+# Copy composer files if exist
+COPY composer.json composer.lock* ./
+RUN if [ -f composer.json ]; then \\
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && \\
+        php composer-setup.php --install-dir=/usr/local/bin --filename=composer && \\
+        composer install --no-dev --optimize-autoloader; \\
+    fi
+
+# Copy application code
+COPY . .
+
+# Configure PHP-FPM to run as appuser
+RUN sed -i 's/user = www-data/user = appuser/g' /usr/local/etc/php-fpm.d/www.conf && \\
+    sed -i 's/group = www-data/group = appuser/g' /usr/local/etc/php-fpm.d/www.conf
+
+# Change ownership
+RUN chown -R appuser:appuser /app
+
+EXPOSE {port}
+
+CMD ["php-fpm"]
+"""
+
+        elif runtime == "java-maven":
+            dockerfile = f"""# Build stage
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /app
+
+# Copy pom.xml
+COPY pom.xml .
+RUN mvn dependency:go-offline
+
+# Copy source and build
+COPY src ./src
+RUN mvn package -DskipTests
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
+
+# Copy jar from builder
+COPY --from=builder /app/target/*.jar app.jar
+
+# Change ownership
+RUN chown appuser:appuser /app/app.jar
+
+USER appuser
+
+EXPOSE {port}
+
+CMD ["java", "-jar", "app.jar"]
+"""
+
+        elif runtime == "java-gradle":
+            dockerfile = f"""# Build stage
+FROM gradle:8.5-jdk21-alpine AS builder
+
+WORKDIR /app
+
+# Copy gradle files
+COPY build.gradle* settings.gradle* gradlew* gradle/ ./
+
+# Copy source and build
+COPY . .
+RUN gradle build --no-daemon -x test
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
+
+# Copy jar from builder
+COPY --from=builder /app/build/libs/*.jar app.jar
+
+# Change ownership
+RUN chown appuser:appuser /app/app.jar
+
+USER appuser
+
+EXPOSE {port}
+
+CMD ["java", "-jar", "app.jar"]
+"""
+
+        elif runtime == "dotnet":
+            dockerfile = f"""# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
+
+WORKDIR /app
+
+# Copy project files
+COPY *.csproj* *.fsproj* *.vbproj* ./
+RUN dotnet restore || true
+
+# Copy source and build
+COPY . .
+RUN dotnet publish -c Release -o out
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
+
+# Copy built app
+COPY --from=builder /app/out .
+
+# Change ownership
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE {port}
+
+ENV ASPNETCORE_URLS=http://+:{port}
+
+ENTRYPOINT ["dotnet", "app.dll"]
+"""
+
         elif runtime == "static":
-            dockerfile = f"""FROM nginx:alpine
+            dockerfile = f"""FROM nginx:1.25-alpine
 
 # Copy static files
 COPY . /usr/share/nginx/html
 
 # Copy custom nginx config if exists
-COPY nginx.conf /etc/nginx/nginx.conf || true
+COPY nginx.conf /etc/nginx/nginx.conf 2>/dev/null || true
+
+# Create non-root user (nginx alpine already has nginx user)
+RUN chown -R nginx:nginx /usr/share/nginx/html
+
+# Run as non-root
+USER nginx
 
 EXPOSE 80
 """
@@ -170,6 +484,20 @@ EXPOSE 80
             return 'CMD ["node", "app.js"]'
         else:
             return 'CMD ["npm", "start"]'
+
+    def _detect_ruby_entrypoint(self, build_dir: Path) -> str:
+        """Detect Ruby application entrypoint"""
+        # Check for Rack config (Rails, Sinatra, etc.)
+        if (build_dir / "config.ru").exists():
+            return 'CMD ["bundle", "exec", "rackup", "-o", "0.0.0.0"]'
+        # Check for Rails
+        elif (build_dir / "config" / "environment.rb").exists():
+            return 'CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]'
+        # Check for Sinatra
+        elif (build_dir / "app.rb").exists():
+            return 'CMD ["bundle", "exec", "ruby", "app.rb", "-o", "0.0.0.0"]'
+        else:
+            return 'CMD ["bundle", "exec", "ruby", "app.rb"]'
 
     def build_image(self, app_name: str, tarball_path: str, vesla_config: dict,
                     max_build_time: int = 600) -> Tuple[str, float]:

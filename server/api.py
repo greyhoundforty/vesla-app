@@ -170,6 +170,19 @@ def deploy():
         return jsonify({"status": "error", "error": f"Internal server error: {str(e)}"}), 500
 
 
+@app.route("/api/apps", methods=["GET"])
+@require_auth
+def list_apps():
+    """List all deployed applications"""
+    try:
+        apps = container_deployer.list_all_apps()
+        return jsonify({"status": "success", "apps": apps, "total": len(apps)}), 200
+
+    except Exception as e:
+        logger.error(f"Error listing apps: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
 @app.route("/api/apps/<app_name>", methods=["GET"])
 @require_auth
 def get_app_status(app_name):
