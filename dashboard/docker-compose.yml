@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  vesla-dashboard:
+    build: .
+    container_name: vesla-dashboard
+    restart: unless-stopped
+    ports:
+      # Bind to localhost only - accessible via Tailscale Serve
+      - "127.0.0.1:5002:5002"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # No Traefik labels - using Tailscale Serve instead

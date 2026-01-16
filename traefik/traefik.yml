@@ -1,0 +1,89 @@
+# Traefik Static Configuration
+# This file configures Traefik's global settings
+
+# API and Dashboard
+api:
+  dashboard: true  # Enable the dashboard
+  insecure: false  # Don't expose dashboard on :8080 (we'll use HTTPS)
+
+# Entry Points (where Traefik listens)
+entryPoints:
+  web:
+    address: ":80"
+    # Redirect HTTP to HTTPS
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: digitalocean
+        domains:
+          # Add your 4 domains here - Traefik will get wildcard certs for each
+          - main: "vesla-app.cloud"
+            sans:
+              - "*.vesla-app.cloud"
+          - main: "vesla-app.com"
+            sans:
+              - "*.vesla-app.com"
+          - main: "vesla-app.club"
+            sans:
+              - "*.vesla-app.club"
+          - main: "vesla-app.site"
+            sans:
+              - "*.vesla-app.site"
+  
+  # Metrics endpoint (internal only)
+  metrics:
+    address: ":8082"
+
+# Docker Provider
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false  # Only expose containers with traefik.enable=true
+    network: vesla-network    # Default network for Traefik
+  
+  # File provider for additional config
+  file:
+    directory: "/etc/traefik/config"
+    watch: true
+
+# Certificate Resolvers
+certificatesResolvers:
+  digitalocean:
+    acme:
+      email: "ryantiffany@fastmail.com" 
+      storage: "/letsencrypt/acme.json"
+      dnsChallenge:
+        provider: digitalocean
+        delayBeforeCheck: 0
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
+
+# Logging
+log:
+  level: DEBUG  # DEBUG, INFO, WARN, ERROR
+  filePath: "/var/log/traefik/traefik.log"
+
+# Access Logs
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+  bufferingSize: 100
+
+# Metrics for Observability
+metrics:
+  prometheus:
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    entryPoint: metrics

@@ -1,0 +1,10 @@
+app: example-app
+domain: example.vesla-app.site
+runtime: python
+env:
+  PORT: 5000
+  DEBUG: false
+health_check: /health
+resources:
+  memory: 256M
+  cpus: 0.25

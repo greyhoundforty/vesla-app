@@ -1,0 +1,442 @@
+#!/usr/bin/env python3
+"""
+Vesla CLI - Deploy applications to your Vesla server
+
+Usage:
+    vesla init                  # Initialize vesla.yaml in current directory
+    vesla push                  # Deploy current directory to server
+    vesla status <app>          # Get status of deployed app
+    vesla logs <app> [--tail N] # View logs from deployed app
+    vesla delete <app>          # Delete deployed app
+    vesla config set <key> <value>  # Configure CLI
+    vesla config get <key>      # Get configuration value
+"""
+
+import os
+import sys
+import argparse
+import tarfile
+import tempfile
+import yaml
+import requests
+from pathlib import Path
+import json
+
+VERSION = "0.1.0"
+
+class VeslaConfig:
+    """Manage Vesla CLI configuration"""
+
+    def __init__(self):
+        self.config_dir = Path.home() / ".vesla"
+        self.config_file = self.config_dir / "config.yaml"
+        self.config = self._load_config()
+
+    def _load_config(self):
+        """Load configuration from file"""
+        if self.config_file.exists():
+            with open(self.config_file) as f:
+                return yaml.safe_load(f) or {}
+        return {}
+
+    def save(self):
+        """Save configuration to file"""
+        self.config_dir.mkdir(exist_ok=True)
+        with open(self.config_file, 'w') as f:
+            yaml.dump(self.config, f)
+
+    def get(self, key, default=None):
+        """Get configuration value"""
+        return self.config.get(key, default)
+
+    def set(self, key, value):
+        """Set configuration value"""
+        self.config[key] = value
+        self.save()
+
+
+class VeslaClient:
+    """Vesla API client"""
+
+    def __init__(self, server_url, api_token):
+        self.server_url = server_url.rstrip('/')
+        self.api_token = api_token
+        self.headers = {
+            "Authorization": f"Bearer {api_token}"
+        }
+
+    def deploy(self, tarball_path, vesla_config):
+        """Deploy application to server"""
+        url = f"{self.server_url}/api/deploy"
+
+        with open(tarball_path, 'rb') as f:
+            files = {
+                'code': ('code.tar.gz', f, 'application/gzip')
+            }
+            data = {
+                'config': yaml.dump(vesla_config)
+            }
+
+            print(f"Uploading to {self.server_url}...")
+            response = requests.post(url, headers=self.headers, files=files, data=data, timeout=300)
+
+        return response
+
+    def get_status(self, app_name):
+        """Get application status"""
+        url = f"{self.server_url}/api/apps/{app_name}"
+        response = requests.get(url, headers=self.headers, timeout=10)
+        return response
+
+    def get_logs(self, app_name, tail=100):
+        """Get application logs"""
+        url = f"{self.server_url}/api/apps/{app_name}/logs?tail={tail}"
+        response = requests.get(url, headers=self.headers, timeout=10)
+        return response
+
+    def delete_app(self, app_name):
+        """Delete application"""
+        url = f"{self.server_url}/api/apps/{app_name}"
+        response = requests.delete(url, headers=self.headers, timeout=30)
+        return response
+
+    def health_check(self):
+        """Check server health"""
+        url = f"{self.server_url}/health"
+        try:
+            response = requests.get(url, timeout=5)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+
+def create_tarball(source_dir, exclude_patterns=None):
+    """Create tarball from directory"""
+    if exclude_patterns is None:
+        exclude_patterns = ['.git', '__pycache__', '*.pyc', 'node_modules', '.env', 'venv']
+
+    # Create temp tarball
+    fd, tarball_path = tempfile.mkstemp(suffix='.tar.gz')
+    os.close(fd)
+
+    def filter_files(tarinfo):
+        """Filter function for tarball creation"""
+        for pattern in exclude_patterns:
+            if pattern in tarinfo.name:
+                return None
+        return tarinfo
+
+    with tarfile.open(tarball_path, 'w:gz') as tar:
+        tar.add(source_dir, arcname='.', filter=filter_files)
+
+    return tarball_path
+
+
+def cmd_init(args):
+    """Initialize vesla.yaml in current directory"""
+    vesla_file = Path.cwd() / "vesla.yaml"
+
+    if vesla_file.exists() and not args.force:
+        print(f"Error: vesla.yaml already exists. Use --force to overwrite.")
+        return 1
+
+    # Interactive setup
+    print("Initializing Vesla configuration...")
+    print()
+
+    app_name = input("App name (e.g., myapp): ").strip() or Path.cwd().name
+    domain = input(f"Domain (e.g., {app_name}.vesla-app.site): ").strip() or f"{app_name}.vesla-app.site"
+    port = input("Port (default: 5000): ").strip() or "5000"
+
+    config = {
+        "app": app_name,
+        "domain": domain,
+        "env": {
+            "PORT": int(port)
+        }
+    }
+
+    with open(vesla_file, 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+    print(f"\n✓ Created vesla.yaml")
+    print(f"\nNext steps:")
+    print(f"  1. Review and edit vesla.yaml")
+    print(f"  2. Run: vesla push")
+    return 0
+
+
+def cmd_push(args):
+    """Deploy current directory to server"""
+    # Load vesla.yaml
+    vesla_file = Path.cwd() / "vesla.yaml"
+    if not vesla_file.exists():
+        print("Error: vesla.yaml not found. Run 'vesla init' first.")
+        return 1
+
+    with open(vesla_file) as f:
+        vesla_config = yaml.safe_load(f)
+
+    # Validate config
+    if "app" not in vesla_config or "domain" not in vesla_config:
+        print("Error: vesla.yaml must contain 'app' and 'domain' fields.")
+        return 1
+
+    # Load CLI config
+    config = VeslaConfig()
+    server_url = config.get("server_url")
+    api_token = config.get("api_token")
+
+    if not server_url or not api_token:
+        print("Error: Vesla not configured.")
+        print("\nRun:")
+        print("  vesla config set server_url https://api.vesla-app.site")
+        print("  vesla config set api_token YOUR_API_TOKEN")
+        return 1
+
+    # Create client
+    client = VeslaClient(server_url, api_token)
+
+    # Check server health
+    print("Checking server connection...")
+    if not client.health_check():
+        print(f"Error: Cannot connect to server at {server_url}")
+        return 1
+
+    print(f"✓ Connected to {server_url}")
+
+    # Create tarball
+    print(f"\nPackaging {vesla_config['app']}...")
+    tarball_path = create_tarball(Path.cwd())
+    tarball_size = os.path.getsize(tarball_path) / (1024 * 1024)
+    print(f"✓ Created tarball ({tarball_size:.2f} MB)")
+
+    try:
+        # Deploy
+        print(f"\nDeploying to {vesla_config['domain']}...")
+        response = client.deploy(tarball_path, vesla_config)
+
+        if response.status_code == 200:
+            result = response.json()
+            print(f"\n✓ Deployment successful!")
+            print(f"  App: {result['app']}")
+            print(f"  URL: {result['url']}")
+            print(f"  Build time: {result['build_time']}s")
+            print(f"  Container: {result['container_id']}")
+            print(f"\nYour app should be available in 1-2 minutes at:")
+            print(f"  {result['url']}")
+            return 0
+        else:
+            try:
+                error = response.json()
+                print(f"\n✗ Deployment failed: {error.get('error', 'Unknown error')}")
+                if 'details' in error:
+                    print(f"  Details: {error['details']}")
+            except Exception:
+                print(f"\n✗ Deployment failed: HTTP {response.status_code}")
+                print(response.text)
+            return 1
+
+    finally:
+        # Clean up tarball
+        try:
+            os.unlink(tarball_path)
+        except Exception:
+            pass
+
+
+def cmd_status(args):
+    """Get status of deployed app"""
+    config = VeslaConfig()
+    server_url = config.get("server_url")
+    api_token = config.get("api_token")
+
+    if not server_url or not api_token:
+        print("Error: Vesla not configured. Run 'vesla config set' first.")
+        return 1
+
+    client = VeslaClient(server_url, api_token)
+    response = client.get_status(args.app)
+
+    if response.status_code == 200:
+        result = response.json()
+        container = result['container']
+        print(f"App: {result['app']}")
+        print(f"Status: {container['status']}")
+        print(f"Container ID: {container['id']}")
+        print(f"Image: {container['image']}")
+        print(f"Created: {container['created']}")
+        return 0
+    elif response.status_code == 404:
+        print(f"App '{args.app}' not found.")
+        return 1
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return 1
+
+
+def cmd_logs(args):
+    """Get logs from deployed app"""
+    config = VeslaConfig()
+    server_url = config.get("server_url")
+    api_token = config.get("api_token")
+
+    if not server_url or not api_token:
+        print("Error: Vesla not configured. Run 'vesla config set' first.")
+        return 1
+
+    client = VeslaClient(server_url, api_token)
+    response = client.get_logs(args.app, tail=args.tail)
+
+    if response.status_code == 200:
+        result = response.json()
+        print(result['logs'])
+        return 0
+    elif response.status_code == 404:
+        print(f"App '{args.app}' not found.")
+        return 1
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return 1
+
+
+def cmd_delete(args):
+    """Delete deployed app"""
+    config = VeslaConfig()
+    server_url = config.get("server_url")
+    api_token = config.get("api_token")
+
+    if not server_url or not api_token:
+        print("Error: Vesla not configured. Run 'vesla config set' first.")
+        return 1
+
+    # Confirm deletion
+    if not args.yes:
+        confirm = input(f"Delete app '{args.app}'? (y/N): ").strip().lower()
+        if confirm != 'y':
+            print("Cancelled.")
+            return 0
+
+    client = VeslaClient(server_url, api_token)
+    response = client.delete_app(args.app)
+
+    if response.status_code == 200:
+        print(f"✓ App '{args.app}' deleted successfully.")
+        return 0
+    elif response.status_code == 404:
+        print(f"App '{args.app}' not found.")
+        return 1
+    else:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return 1
+
+
+def cmd_config(args):
+    """Manage configuration"""
+    config = VeslaConfig()
+
+    if args.action == 'set':
+        config.set(args.key, args.value)
+        print(f"✓ Set {args.key} = {args.value}")
+        return 0
+
+    elif args.action == 'get':
+        value = config.get(args.key)
+        if value is None:
+            print(f"Error: {args.key} not set.")
+            return 1
+        print(value)
+        return 0
+
+    elif args.action == 'list':
+        if not config.config:
+            print("No configuration set.")
+            return 0
+        print("Configuration:")
+        for key, value in config.config.items():
+            print(f"  {key}: {value}")
+        return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Vesla CLI - Deploy applications to your Vesla server',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('--version', action='version', version=f'vesla {VERSION}')
+
+    subparsers = parser.add_subparsers(dest='command', help='Command to run')
+
+    # Init command
+    init_parser = subparsers.add_parser('init', help='Initialize vesla.yaml')
+    init_parser.add_argument('--force', action='store_true', help='Overwrite existing vesla.yaml')
+
+    # Push command
+    push_parser = subparsers.add_parser('push', help='Deploy current directory')
+
+    # Status command
+    status_parser = subparsers.add_parser('status', help='Get app status')
+    status_parser.add_argument('app', help='App name')
+
+    # Logs command
+    logs_parser = subparsers.add_parser('logs', help='Get app logs')
+    logs_parser.add_argument('app', help='App name')
+    logs_parser.add_argument('--tail', type=int, default=100, help='Number of lines to show')
+
+    # Delete command
+    delete_parser = subparsers.add_parser('delete', help='Delete app')
+    delete_parser.add_argument('app', help='App name')
+    delete_parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation')
+
+    # Config command
+    config_parser = subparsers.add_parser('config', help='Manage configuration')
+    config_subparsers = config_parser.add_subparsers(dest='action')
+
+    config_set = config_subparsers.add_parser('set', help='Set configuration value')
+    config_set.add_argument('key', help='Configuration key')
+    config_set.add_argument('value', help='Configuration value')
+
+    config_get = config_subparsers.add_parser('get', help='Get configuration value')
+    config_get.add_argument('key', help='Configuration key')
+
+    config_list = config_subparsers.add_parser('list', help='List all configuration')
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        return 1
+
+    # Route to command handlers
+    if args.command == 'init':
+        return cmd_init(args)
+    elif args.command == 'push':
+        return cmd_push(args)
+    elif args.command == 'status':
+        return cmd_status(args)
+    elif args.command == 'logs':
+        return cmd_logs(args)
+    elif args.command == 'delete':
+        return cmd_delete(args)
+    elif args.command == 'config':
+        if not args.action:
+            config_parser.print_help()
+            return 1
+        return cmd_config(args)
+    else:
+        parser.print_help()
+        return 1
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        sys.exit(130)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)

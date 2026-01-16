@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VESLA MISSION CONTROL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cream: #F5F1E8;
+            --charcoal: #2B2B2B;
+            --nasa-orange: #FC3D21;
+            --mission-blue: #4A90E2;
+            --apollo-green: #4CAF50;
+            --warm-gray: #C8C0B3;
+            --light-cream: #FDFBF7;
+            --dark-orange: #D42E14;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background: var(--cream);
+            color: var(--charcoal);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Background grid pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(var(--warm-gray) 1px, transparent 1px),
+                linear-gradient(90deg, var(--warm-gray) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 40px 30px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            border: 4px solid var(--charcoal);
+            background: var(--light-cream);
+            padding: 30px 40px;
+            margin-bottom: 40px;
+            position: relative;
+            box-shadow: 8px 8px 0 var(--warm-gray);
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border: 2px solid var(--nasa-orange);
+            pointer-events: none;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: -2px;
+            color: var(--charcoal);
+            line-height: 0.9;
+        }
+
+        .mission-id {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--nasa-orange);
+            font-weight: 500;
+            letter-spacing: 2px;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding-top: 20px;
+            border-top: 2px solid var(--warm-gray);
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .status-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--charcoal);
+            opacity: 0.6;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .status-value {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--charcoal);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--apollo-green);
+            box-shadow: 0 0 12px var(--apollo-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Deployments Grid */
+        .deployments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .deployments-header h2 {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--charcoal);
+        }
+
+        .refresh-btn {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--nasa-orange);
+            color: var(--light-cream);
+            border: 3px solid var(--charcoal);
+            padding: 12px 24px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0 var(--charcoal);
+        }
+
+        .refresh-btn:hover {
+            background: var(--dark-orange);
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--charcoal);
+        }
+
+        .refresh-btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0 0 0 var(--charcoal);
+        }
+
+        .deployments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 30px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Deployment Card */
+        .deployment-card {
+            background: var(--light-cream);
+            border: 3px solid var(--charcoal);
+            padding: 0;
+            position: relative;
+            transition: all 0.3s;
+            animation: slideIn 0.5s ease-out backwards;
+        }
+
+        .deployment-card:nth-child(1) { animation-delay: 0.1s; }
+        .deployment-card:nth-child(2) { animation-delay: 0.2s; }
+        .deployment-card:nth-child(3) { animation-delay: 0.3s; }
+        .deployment-card:nth-child(4) { animation-delay: 0.4s; }
+        .deployment-card:nth-child(5) { animation-delay: 0.5s; }
+        .deployment-card:nth-child(6) { animation-delay: 0.6s; }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .deployment-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 8px 8px 0 var(--warm-gray);
+        }
+
+        .card-header {
+            background: var(--charcoal);
+            color: var(--cream);
+            padding: 20px;
+            border-bottom: 3px solid var(--nasa-orange);
+        }
+
+        .card-title {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .card-domain {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--mission-blue);
+            text-decoration: none;
+            display: inline-block;
+            transition: color 0.2s;
+        }
+
+        .card-domain:hover {
+            color: var(--nasa-orange);
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--warm-gray);
+        }
+
+        .card-row:last-child {
+            border-bottom: none;
+        }
+
+        .card-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--charcoal);
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card-value {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--charcoal);
+        }
+
+        .card-value.mono {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: var(--apollo-green);
+            color: white;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .status-badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .mem-bar {
+            height: 6px;
+            background: var(--warm-gray);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .mem-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--mission-blue), var(--nasa-orange));
+            transition: width 0.5s ease;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.2rem;
+            color: var(--charcoal);
+            letter-spacing: 2px;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            border: 3px dashed var(--warm-gray);
+            background: var(--light-cream);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .empty-state-text {
+            font-family: 'Chakra Petch', sans-serif;
+            font-size: 1.5rem;
+            color: var(--charcoal);
+            opacity: 0.6;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 60px;
+            padding: 30px;
+            border-top: 2px solid var(--warm-gray);
+            text-align: center;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--charcoal);
+            opacity: 0.5;
+            letter-spacing: 1px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .deployments-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                padding: 20px;
+            }
+
+            .status-bar {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div>
+                    <div class="mission-id">MISSION CONTROL</div>
+                    <h1>VESLA</h1>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-label">System Status</div>
+                    <div class="status-value">
+                        <div class="status-indicator">
+                            <span class="status-dot"></span>
+                            <span id="system-status">OPERATIONAL</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Active Deployments</div>
+                    <div class="status-value" id="deployment-count">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Mission Time</div>
+                    <div class="status-value" id="mission-time">--:--:--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Last Update</div>
+                    <div class="status-value" id="last-update">--</div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="deployments-header">
+                <h2>ACTIVE DEPLOYMENTS</h2>
+                <button class="refresh-btn" onclick="loadDeployments()">↻ REFRESH</button>
+            </div>
+
+            <div id="deployments-container">
+                <div class="loading">LOADING MISSION DATA</div>
+            </div>
+        </main>
+
+        <footer>
+            VESLA DEPLOYMENT SYSTEM // MISSION CONTROL INTERFACE v1.0
+        </footer>
+    </div>
+
+    <script>
+        function updateMissionTime() {
+            const now = new Date();
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+            document.getElementById('mission-time').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        function renderDeployments(data) {
+            const container = document.getElementById('deployments-container');
+            const deployments = data.deployments;
+
+            if (deployments.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📡</div>
+                        <div class="empty-state-text">NO ACTIVE DEPLOYMENTS</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="deployments-grid">
+                    ${deployments.map(dep => `
+                        <div class="deployment-card">
+                            <div class="card-header">
+                                <div class="card-title">${dep.name}</div>
+                                <a href="https://${dep.domain}" target="_blank" class="card-domain">
+                                    ${dep.domain} →
+                                </a>
+                            </div>
+                            <div class="card-body">
+                                <div class="card-row">
+                                    <span class="card-label">Status</span>
+                                    <span class="status-badge">${dep.status}</span>
+                                </div>
+                                <div class="card-row">
+                                    <span class="card-label">Uptime</span>
+                                    <span class="card-value">${dep.uptime}</span>
+                                </div>
+                                <div class="card-row">
+                                    <span class="card-label">Port</span>
+                                    <span class="card-value mono">${dep.port || 'N/A'}</span>
+                                </div>
+                                <div class="card-row">
+                                    <span class="card-label">Image</span>
+                                    <span class="card-value mono">${dep.image}</span>
+                                </div>
+                                <div class="card-row">
+                                    <span class="card-label">Memory</span>
+                                    <div style="flex: 1; margin-left: 20px;">
+                                        <span class="card-value">${dep.mem_usage_mb} MB (${dep.mem_percent}%)</span>
+                                        <div class="mem-bar">
+                                            <div class="mem-bar-fill" style="width: ${Math.min(dep.mem_percent, 100)}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        async function loadDeployments() {
+            try {
+                const response = await fetch('/api/deployments');
+                const data = await response.json();
+
+                if (data.status === 'operational') {
+                    document.getElementById('system-status').textContent = 'OPERATIONAL';
+                    document.getElementById('deployment-count').textContent = data.total;
+                    document.getElementById('last-update').textContent = formatTimestamp(data.timestamp);
+                    renderDeployments(data);
+                } else {
+                    document.getElementById('system-status').textContent = 'ERROR';
+                    document.getElementById('deployments-container').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <div class="empty-state-text">SYSTEM ERROR</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading deployments:', error);
+                document.getElementById('system-status').textContent = 'ERROR';
+            }
+        }
+
+        // Update mission time every second
+        setInterval(updateMissionTime, 1000);
+        updateMissionTime();
+
+        // Load deployments on page load
+        loadDeployments();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadDeployments, 30000);
+    </script>
+</body>
+</html>

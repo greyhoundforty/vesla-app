@@ -1,0 +1,50 @@
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: unless-stopped
+    
+    # Security: Run as non-root user (vesla:docker)
+    user: "1001:988"
+    
+    # Environment variables
+    env_file:
+      - .env
+    
+    environment:
+      - DO_AUTH_TOKEN=${DO_AUTH_TOKEN}
+    
+    # Ports
+    ports:
+      - "80:80"     # HTTP
+      - "443:443"   # HTTPS
+      - "127.0.0.1:8080:8080"  # Dashboard (localhost only)
+      - "127.0.0.1:8082:8082"  # Metrics (localhost only)
+    
+    # Volumes
+    volumes:
+      # Docker socket (read-only for security)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      
+      # Traefik configuration
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config:/etc/traefik/config:ro
+      
+      # Let's Encrypt certificates
+      - ./letsencrypt:/letsencrypt
+      
+      # Logs
+      - ./logs:/var/log/traefik
+    
+    # Networks
+    networks:
+      - vesla-network
+    
+    # Labels for the dashboard itself
+    labels:
+      - "traefik.enable=true"
+      
+networks:
+  vesla-network:
+    external: true
+

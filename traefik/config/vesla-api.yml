@@ -1,0 +1,15 @@
+http:
+  routers:
+    vesla-api:
+      rule: "Host(`api.vesla-app.site`)"
+      entryPoints:
+        - websecure
+      service: vesla-api-service
+      tls:
+        certResolver: digitalocean
+
+  services:
+    vesla-api-service:
+      loadBalancer:
+        servers:
+          - url: "http://172.18.0.1:5001"

@@ -1,0 +1,20 @@
+# Dynamic configuration for Traefik dashboard
+# This configures the dashboard to be accessible via HTTPS with auth
+
+http:
+  routers:
+    dashboard:
+      rule: "Host(`traefik.internal`)"  # Only accessible via Tailscale
+      service: api@internal
+      entryPoints:
+        - websecure
+      middlewares:
+        - dashboard-auth
+      tls:
+        certResolver: digitalocean
+  
+  middlewares:
+    dashboard-auth:
+      basicAuth:
+        users:
+          - admin:$$2y$05$vaRQX5hyIB0yoG/8lDHMwu6gfLnitIAQYiOt3IAClCaMkfXUTlGja

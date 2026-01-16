@@ -1,0 +1,31 @@
+# Vesla Server Configuration
+
+# Allowed domains for app deployment
+allowed_domains:
+  - "vesla-app.cloud"
+  - "vesla-app.com"
+  - "vesla-app.club"
+  - "vesla-app.site"
+
+# API authentication token
+# Generate with: openssl rand -hex 32
+api_token: "VESLA_API_TOKEN"
+
+# Digital Ocean configuration
+digitalocean:
+  api_token: "DO_TOKEN"
+  
+# Docker configuration
+docker:
+  network: "vesla-network"
+  
+# Build configuration
+build:
+  max_build_time: 600  # 10 minutes
+  default_memory_limit: "512m"
+  default_cpu_limit: "0.5"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "json"

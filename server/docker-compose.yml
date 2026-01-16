@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  vesla-api:
+    build: .
+    container_name: vesla-api
+    restart: unless-stopped
+    networks:
+      - vesla-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config.yaml:/app/config.yaml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vesla-api.rule=Host(`api.vesla-app.site`)"
+      - "traefik.http.routers.vesla-api.entrypoints=websecure"
+      - "traefik.http.routers.vesla-api.tls.certresolver=digitalocean"
+      - "traefik.http.services.vesla-api.loadbalancer.server.port=5001"
+
+networks:
+  vesla-network:
+    external: true
