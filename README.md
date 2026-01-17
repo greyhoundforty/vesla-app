@@ -209,6 +209,35 @@ vesla-app/
 
 ## Server Setup
 
+### Quick Installation (Automated)
+
+The easiest way to set up a new Vesla server is with the installation script:
+
+```bash
+# On a fresh Ubuntu 24.04 server
+ssh root@your-server-ip
+
+# Download and run
+curl -O https://raw.githubusercontent.com/yourusername/vesla-app/main/install-server.sh
+sudo bash install-server.sh
+```
+
+The script will:
+- Check prerequisites (OS, disk space, internet)
+- Prompt for configuration (domains, API tokens, passwords)
+- Install Docker and required services
+- Generate configuration files
+- Start all containers
+- Verify installation
+
+See [INSTALL-QUICK-START.md](INSTALL-QUICK-START.md) for the TL;DR or [INSTALL-SERVER-README.md](INSTALL-SERVER-README.md) for detailed instructions.
+
+### Manual Installation
+
+For advanced setups or troubleshooting:
+
+See the detailed [INSTALL-SERVER-README.md](INSTALL-SERVER-README.md) for manual installation steps.
+
 ### Requirements
 - Ubuntu 24.04 or similar Linux distribution
 - Docker and Docker Compose
