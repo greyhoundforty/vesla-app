@@ -463,6 +463,19 @@ setup_system() {
     usermod -aG docker vesla || die "Failed to add vesla to docker group"
     log_success "Added vesla to docker group"
     
+    # Ensure Docker socket has proper permissions
+    log_step "Configuring Docker socket permissions"
+    chmod 666 /var/run/docker.sock || log_warning "Could not set Docker socket permissions"
+    
+    # Get docker group ID for container configuration
+    local docker_gid=$(getent group docker | cut -d: -f3)
+    local vesla_uid=$(id -u vesla)
+    log_info "Docker GID: $docker_gid, Vesla UID: $vesla_uid"
+    
+    # Store for later use in docker-compose file generation
+    export VESLA_UID="$vesla_uid"
+    export DOCKER_GID="$docker_gid"
+    
     # Create install directory
     log_step "Creating installation directory"
     mkdir -p "$INSTALL_DIR"
@@ -568,18 +581,27 @@ generate_traefik_config() {
     log_step "Generating password hash"
     local password_hash=$(docker run --rm httpd:2.4-alpine htpasswd -nbB admin "$DASHBOARD_PASSWORD" | cut -d: -f2)
     
+    # Get current user/group IDs
+    local vesla_uid=$(id -u vesla)
+    local docker_gid=$(getent group docker | cut -d: -f3)
+    
     # Create .env file
     cat > "$INSTALL_DIR/traefik/.env" << EOF
 # Traefik Configuration
 DO_AUTH_TOKEN=$DO_TOKEN
 ACME_EMAIL=$ACME_EMAIL
 TRAEFIK_DASHBOARD_PASSWORD_HASH=$password_hash
+
+# User/Group IDs for container permissions
+VESLA_UID=$vesla_uid
+DOCKER_GID=$docker_gid
 EOF
     
     chown vesla:vesla "$INSTALL_DIR/traefik/.env"
     chmod 600 "$INSTALL_DIR/traefik/.env"
     
     log_success "Traefik configuration generated"
+    log_info "Container will run as UID:GID = $vesla_uid:$docker_gid"
 }
 
 generate_api_server_config() {
@@ -590,6 +612,10 @@ generate_api_server_config() {
     # Generate random API token
     local api_token=$(openssl rand -hex 32)
     
+    # Get current user/group IDs
+    local vesla_uid=$(id -u vesla)
+    local docker_gid=$(getent group docker | cut -d: -f3)
+    
     # Create .env file
     cat > "$INSTALL_DIR/server/.env" << EOF
 # Vesla Server Configuration
@@ -597,6 +623,10 @@ FLASK_ENV=production
 API_TOKEN=$api_token
 DO_AUTH_TOKEN=$DO_TOKEN
 ACME_EMAIL=$ACME_EMAIL
+
+# User/Group IDs for container permissions
+VESLA_UID=$vesla_uid
+DOCKER_GID=$docker_gid
 EOF
     
     chown vesla:vesla "$INSTALL_DIR/server/.env"

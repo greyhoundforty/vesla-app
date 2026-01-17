@@ -5,10 +5,19 @@ services:
     build: .
     container_name: vesla-dashboard
     restart: unless-stopped
+    
+    # Run as vesla user with docker group access
+    user: "${VESLA_UID:-1000}:${DOCKER_GID:-999}"
+    
     ports:
       # Bind to localhost only - accessible via Tailscale Serve
       - "127.0.0.1:5002:5002"
+    
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /usr/bin/docker:/usr/bin/docker:ro
+    
+    env_file:
+      - ../.env
+    
     # No Traefik labels - using Tailscale Serve instead

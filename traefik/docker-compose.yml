@@ -4,8 +4,9 @@ services:
     container_name: traefik
     restart: unless-stopped
     
-    # Security: Run as non-root user (vesla:docker)
-    user: "1001:988"
+    # Security: Run as vesla user with docker group access
+    # These values are set by the installation script in .env file
+    user: "${VESLA_UID:-1000}:${DOCKER_GID:-999}"
     
     # Environment variables
     env_file:
