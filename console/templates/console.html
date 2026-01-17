@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vesla Console</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+        }
+
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        main {
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+        }
+
+        .section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #79c0ff;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 0.5rem;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .app-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .app-card:hover {
+            border-color: #58a6ff;
+            box-shadow: 0 0 12px rgba(88, 166, 255, 0.1);
+        }
+
+        .app-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #79c0ff;
+        }
+
+        .app-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        .status-running {
+            background: #1f6feb;
+            color: #c9d1d9;
+        }
+
+        .status-exited {
+            background: #da3633;
+            color: #fff;
+        }
+
+        .status-paused {
+            background: #9e6a03;
+            color: #fff;
+        }
+
+        .app-info {
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+            color: #8b949e;
+        }
+
+        .app-info strong {
+            color: #c9d1d9;
+        }
+
+        .app-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        button {
+            background: #238636;
+            color: #fff;
+            border: 1px solid #2ea043;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .logs-container {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-line {
+            margin: 0.25rem 0;
+            padding: 0.25rem 0;
+        }
+
+        .log-timestamp {
+            color: #6e7681;
+            margin-right: 0.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #8b949e;
+        }
+
+        .error {
+            background: #da3633;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .stat {
+            background: #0d1117;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #238636;
+        }
+
+        .stat-label {
+            color: #8b949e;
+            font-size: 0.8rem;
+        }
+
+        .stat-value {
+            color: #79c0ff;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Vesla Console</h1>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div id="status" class="loading">Loading...</div>
+
+            <div class="section" id="apps-section" style="display: none;">
+                <h2>Deployed Applications</h2>
+                <div class="apps-grid" id="apps-list"></div>
+            </div>
+
+            <div class="section" id="system-section" style="display: none;">
+                <h2>System Containers</h2>
+                <div class="apps-grid" id="system-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Placeholder for future JavaScript functionality
+        // This template will be extended in the planning phase
+        
+        async function loadApps() {
+            try {
+                const response = await fetch('/api/apps');
+                const data = await response.json();
+                
+                if (data.apps && data.apps.length > 0) {
+                    document.getElementById('apps-section').style.display = 'block';
+                    renderApps(data.apps, 'apps-list');
+                }
+                
+                if (data.system && data.system.length > 0) {
+                    document.getElementById('system-section').style.display = 'block';
+                    renderApps(data.system, 'system-list');
+                }
+                
+                document.getElementById('status').innerHTML = 
+                    `<p>Total containers: ${data.total}</p>`;
+                
+            } catch (error) {
+                document.getElementById('status').innerHTML = 
+                    `<div class="error">Error loading apps: ${error.message}</div>`;
+            }
+        }
+
+        function renderApps(apps, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = apps.map(app => `
+                <div class="app-card">
+                    <div class="app-name">${app.name}</div>
+                    <span class="app-status status-${app.status.replace(/[^a-z]/g, '')}">
+                        ${app.status}
+                    </span>
+                    <div class="app-info">
+                        <strong>Image:</strong> ${app.image.split(':')[0]}
+                    </div>
+                    <div class="app-info">
+                        <strong>Created:</strong> ${new Date(app.created).toLocaleDateString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load apps on page load
+        document.addEventListener('DOMContentLoaded', loadApps);
+        
+        // Refresh every 30 seconds
+        setInterval(loadApps, 30000);
+    </script>
+</body>
+</html>

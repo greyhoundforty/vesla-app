@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  portainer:
+    image: portainer/portainer-ce:2.19.0
+    container_name: portainer
+    restart: always
+    networks:
+      - vesla-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      - TZ=UTC
+    labels:
+      - "traefik.enable=false"
+
+networks:
+  vesla-network:
+    external: true
+
+volumes:
+  portainer_data:

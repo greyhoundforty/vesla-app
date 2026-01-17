@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  console:
+    build: .
+    container_name: vesla-console
+    restart: always
+    networks:
+      - vesla-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:5003:5003"
+    environment:
+      - FLASK_ENV=production
+      - PORT=5003
+      - DEBUG=false
+    labels:
+      - "traefik.enable=false"
+      - "vesla=true"
+
+networks:
+  vesla-network:
+    external: true
