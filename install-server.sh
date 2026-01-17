@@ -511,11 +511,33 @@ setup_docker_network() {
     if docker network inspect vesla-network &> /dev/null; then
         log_info "Network already exists"
     else
-        docker network create \
-            --driver bridge \
-            --subnet=172.18.0.0/16 \
-            vesla-network || die "Failed to create Docker network"
-        log_success "Docker network created"
+        # Try multiple subnet ranges to avoid conflicts with existing networks
+        local subnets=("172.19.0.0/16" "172.20.0.0/16" "172.21.0.0/16" "10.10.0.0/16")
+        local network_created=false
+        
+        for subnet in "${subnets[@]}"; do
+            log_step "Attempting to create network with subnet $subnet"
+            if docker network create \
+                --driver bridge \
+                --subnet="$subnet" \
+                vesla-network &> /dev/null; then
+                log_success "Docker network created with subnet $subnet"
+                network_created=true
+                break
+            else
+                log_info "Subnet $subnet conflicts, trying next..."
+            fi
+        done
+        
+        # If all specific subnets fail, try without specifying subnet (auto-assign)
+        if [[ "$network_created" == false ]]; then
+            log_step "Creating network with auto-assigned subnet"
+            if docker network create --driver bridge vesla-network &> /dev/null; then
+                log_success "Docker network created with auto-assigned subnet"
+            else
+                die "Failed to create Docker network. Check 'docker network ls' for conflicts."
+            fi
+        fi
     fi
 }
 
