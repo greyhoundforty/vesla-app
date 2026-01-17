@@ -69,11 +69,11 @@ certificatesResolvers:
 # Logging
 log:
   level: DEBUG  # DEBUG, INFO, WARN, ERROR
-  filePath: "/var/log/traefik/traefik.log"
+  filePath: "/opt/vesla/traefik/logs/traefik.log"
 
 # Access Logs
 accessLog:
-  filePath: "/var/log/traefik/access.log"
+  filePath: "/opt/vesla/traefik/logs/access.log"
   bufferingSize: 100
 
 # Metrics for Observability
