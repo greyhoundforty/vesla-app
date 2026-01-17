@@ -488,7 +488,7 @@ setup_repository() {
     else
         log_step "Downloading Vesla repository"
         cd /tmp
-        sudo -u vesla git clone https://github.com/yourusername/vesla-app.git vesla-app-tmp
+        sudo -u vesla git clone https://github.com/greyhoundforty/vesla-app.git vesla-app-tmp
         cp -r /tmp/vesla-app-tmp/* "$INSTALL_DIR/"
         cp -r /tmp/vesla-app-tmp/.git* "$INSTALL_DIR/"
         chown -R vesla:vesla "$INSTALL_DIR"
