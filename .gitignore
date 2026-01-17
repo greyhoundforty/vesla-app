@@ -1,7 +1,7 @@
 ## Server config
 server/config.yaml
 traefik/letsencrypt/acme.json
-
+.prompt-extraction/*.md
 ###------------------###
 ###  GitHub: Python  ###
 ###------------------###
