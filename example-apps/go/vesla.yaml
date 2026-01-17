@@ -1,0 +1,9 @@
+app: example-go-app
+domain: example-go.vesla-app.club
+runtime: go
+env:
+  PORT: 8080
+health_check: /health
+resources:
+  memory: 128M
+  cpus: 0.25

@@ -1,0 +1,10 @@
+app: node-app
+domain: node.vesla-app.club
+runtime: nodejs
+env:
+  PORT: 3000
+  NODE_ENV: production
+health_check: /health
+resources:
+  memory: 256M
+  cpus: 0.25

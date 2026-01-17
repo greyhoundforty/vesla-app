@@ -12,4 +12,4 @@ http:
     vesla-api-service:
       loadBalancer:
         servers:
-          - url: "http://172.18.0.1:5001"
+          - url: "http://vesla-api:5001"

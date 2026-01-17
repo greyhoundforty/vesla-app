@@ -1,0 +1,19 @@
+{
+  "name": "vesla-test-app",
+  "version": "1.0.0",
+  "description": "A simple Node.js Express application for testing Vesla deployments",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "keywords": ["vesla", "express", "example"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
